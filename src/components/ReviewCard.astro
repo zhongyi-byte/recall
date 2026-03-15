@@ -1,0 +1,328 @@
+---
+import { REVIEW_RATINGS } from "@/lib/constants";
+
+const { cards, deckLabel } = Astro.props as {
+  cards: Array<{
+    id: string;
+    deckId: string;
+    deckName: string;
+    front: string;
+    back: string;
+    source: string;
+    tags: string[];
+    state: string;
+    due: string;
+    preview: Record<string, { label: string; minutesLabel: string; due: string }>;
+  }>;
+  deckLabel: string;
+};
+---
+
+<section class="space-y-4">
+  <div
+    class="glass-strong section-card overflow-hidden rounded-[2rem]"
+    data-review-root
+  >
+    <div class="flex items-center justify-between border-b border-slate-200 px-5 py-4">
+      <div>
+        <div class="eyebrow">Review Session</div>
+        <h1 class="mt-1 text-xl font-semibold text-ink" data-deck-name>{deckLabel}</h1>
+      </div>
+      <div class="text-right">
+        <div class="metric text-2xl font-semibold text-ink" data-progress>0/0</div>
+        <p class="text-sm text-slate-500">Due now</p>
+      </div>
+    </div>
+
+    <div class="px-5 py-6 sm:px-8">
+      <div class="eyebrow" data-card-state>Ready</div>
+      <div
+        class="mt-4 rounded-[1.75rem] border border-slate-200/80 bg-white/70 p-6 shadow-sm transition hover:bg-white/85"
+        data-flip-zone
+        role="button"
+        tabindex="0"
+      >
+        <div class="text-3xl leading-tight tracking-tight text-ink sm:text-4xl" data-front></div>
+        <div
+          aria-hidden="true"
+          class="mt-5 hidden text-center font-mono text-sm tracking-[0.28em] text-slate-300"
+          data-divider
+        >
+          ----
+        </div>
+        <div
+          class="markdown mt-5 hidden text-3xl leading-tight tracking-tight text-ink sm:text-4xl"
+          data-back
+        ></div>
+        <p class="mt-5 text-sm font-medium text-slate-500" data-flip-hint>点击卡片显示答案</p>
+      </div>
+      <button
+        class="btn-primary mt-6"
+        data-reveal
+        type="button"
+      >
+        点击显示答案
+      </button>
+      <p aria-live="polite" class="mt-4 hidden text-sm text-rose-700" data-review-error></p>
+    </div>
+
+    <div class="border-t border-slate-200 px-4 py-4 sm:px-6">
+      <div class="grid grid-cols-2 gap-3 sm:grid-cols-4">
+        {REVIEW_RATINGS.map((rating) => (
+          <button
+            class="rounded-[1.5rem] border border-slate-200 bg-white/92 px-4 py-4 text-left shadow-sm transition hover:-translate-y-0.5 hover:border-slate-300 hover:bg-white disabled:cursor-not-allowed disabled:opacity-50"
+            data-rating={rating.value}
+            type="button"
+            disabled
+          >
+            <div class:list={["text-base font-semibold", rating.tone]}>{rating.label}</div>
+            <div class="mt-1 text-xs tracking-[0.08em] text-slate-500" data-interval={rating.value}>-</div>
+          </button>
+        ))}
+      </div>
+      <div class="mt-4 flex items-center justify-between">
+        <p class="text-sm text-slate-500" data-session-copy>Flip first, then score.</p>
+        <button
+          class="btn-secondary px-4 py-2 text-sm disabled:cursor-not-allowed disabled:opacity-40"
+          data-undo
+          type="button"
+          disabled
+        >
+          Undo
+        </button>
+      </div>
+    </div>
+  </div>
+
+  <script id="review-session" type="application/json" set:html={JSON.stringify({ cards, deckLabel })}></script>
+  <script>
+    // @ts-nocheck
+    import { marked } from "marked";
+
+    const root = document.querySelector("[data-review-root]");
+    const payload = document.querySelector("#review-session");
+    if (!(root instanceof HTMLElement) || !(payload instanceof HTMLScriptElement)) {
+      throw new Error("Review session bootstrap failed");
+    }
+
+    const session = JSON.parse(payload.textContent ?? '{"cards":[]}');
+    let cards = Array.isArray(session.cards) ? session.cards : [];
+    const total = cards.length;
+    const undoStack = [];
+    let revealed = false;
+
+    const progressEl = root.querySelector("[data-progress]");
+    const deckNameEl = root.querySelector("[data-deck-name]");
+    const stateEl = root.querySelector("[data-card-state]");
+    const frontEl = root.querySelector("[data-front]");
+    const backEl = root.querySelector("[data-back]");
+    const dividerEl = root.querySelector("[data-divider]");
+    const flipZone = root.querySelector("[data-flip-zone]");
+    const flipHint = root.querySelector("[data-flip-hint]");
+    const revealButton = root.querySelector("[data-reveal]");
+    const errorEl = root.querySelector("[data-review-error]");
+    const sessionCopyEl = root.querySelector("[data-session-copy]");
+    const undoButton = root.querySelector("[data-undo]");
+    const ratingButtons = Array.from(root.querySelectorAll("[data-rating]"));
+
+    function setError(message) {
+      if (!(errorEl instanceof HTMLElement)) return;
+      if (!message) {
+        errorEl.textContent = "";
+        errorEl.classList.add("hidden");
+        return;
+      }
+
+      errorEl.textContent = message;
+      errorEl.classList.remove("hidden");
+    }
+
+    function currentCard() {
+      return cards[0] ?? null;
+    }
+
+    function setButtonStates(disabled) {
+      ratingButtons.forEach((button) => {
+        if (button instanceof HTMLButtonElement) {
+          button.disabled = disabled;
+        }
+      });
+    }
+
+    function render() {
+      const card = currentCard();
+      const reviewed = total - cards.length;
+
+      if (progressEl instanceof HTMLElement) {
+        progressEl.textContent = `${Math.min(reviewed + (card ? 1 : 0), Math.max(total, 1))}/${Math.max(total, 1)}`;
+      }
+
+      if (undoButton instanceof HTMLButtonElement) {
+        undoButton.disabled = undoStack.length === 0;
+      }
+
+      if (!card) {
+        if (deckNameEl instanceof HTMLElement) {
+          deckNameEl.textContent = session.deckLabel;
+        }
+        if (stateEl instanceof HTMLElement) {
+          stateEl.textContent = "Session complete";
+        }
+        if (frontEl instanceof HTMLElement) {
+          frontEl.innerHTML = `<p>今天的复习完成了。共复习 <strong>${reviewed}</strong> 张卡片。</p>`;
+        }
+        if (backEl instanceof HTMLElement) {
+          backEl.classList.add("hidden");
+          backEl.innerHTML = "";
+        }
+        if (dividerEl instanceof HTMLElement) {
+          dividerEl.classList.add("hidden");
+        }
+        if (flipHint instanceof HTMLElement) {
+          flipHint.textContent = reviewed > 0 ? "本次复习已完成。" : "当前没有到期卡片。";
+        }
+        if (revealButton instanceof HTMLButtonElement) {
+          revealButton.classList.add("hidden");
+        }
+        if (sessionCopyEl instanceof HTMLElement) {
+          sessionCopyEl.textContent = reviewed > 0 ? "Solid session." : "No cards are due right now.";
+        }
+        setButtonStates(true);
+        setError("");
+        return;
+      }
+
+      if (deckNameEl instanceof HTMLElement) {
+        deckNameEl.textContent = session.deckLabel || card.deckName;
+      }
+      if (stateEl instanceof HTMLElement) {
+        stateEl.textContent = card.state;
+      }
+      if (frontEl instanceof HTMLElement) {
+        frontEl.innerHTML = marked.parse(card.front);
+      }
+      if (backEl instanceof HTMLElement) {
+        backEl.innerHTML = marked.parse(card.back);
+        backEl.classList.toggle("hidden", !revealed);
+      }
+      if (dividerEl instanceof HTMLElement) {
+        dividerEl.classList.toggle("hidden", !revealed);
+      }
+      if (flipHint instanceof HTMLElement) {
+        flipHint.textContent = revealed ? "选择评分进入下一张。" : "点击卡片或按钮显示答案。";
+      }
+      if (revealButton instanceof HTMLButtonElement) {
+        revealButton.classList.toggle("hidden", revealed);
+      }
+      if (sessionCopyEl instanceof HTMLElement) {
+        sessionCopyEl.textContent = revealed ? "Score it and keep moving." : "Flip first, then score.";
+      }
+      ratingButtons.forEach((button) => {
+        const rating = button.getAttribute("data-rating");
+        const intervalEl = button.querySelector("[data-interval]");
+        if (intervalEl instanceof HTMLElement) {
+          intervalEl.textContent = card.preview?.[rating]?.minutesLabel ?? "-";
+        }
+      });
+      setButtonStates(!revealed);
+      setError("");
+    }
+
+    async function scoreCard(rating, button) {
+      const card = currentCard();
+      if (!card) return;
+
+      setError("");
+      button.disabled = true;
+
+      try {
+        const response = await fetch(`/api/review/${card.id}`, {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          body: JSON.stringify({ rating })
+        });
+
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Review failed");
+        }
+
+        undoStack.push({
+          card,
+          mutation: {
+            cardId: payload.cardId,
+            logId: payload.logId,
+            previousState: payload.previousState
+          }
+        });
+        cards = cards.slice(1);
+        revealed = false;
+        render();
+      } catch (error) {
+        setError(error instanceof Error ? error.message : "Review failed");
+        button.disabled = false;
+      }
+    }
+
+    async function undoLast() {
+      const last = undoStack.pop();
+      if (!last) return;
+
+      try {
+        const response = await fetch("/api/review/undo", {
+          method: "POST",
+          headers: {
+            "content-type": "application/json"
+          },
+          body: JSON.stringify(last.mutation)
+        });
+        const payload = await response.json().catch(() => ({}));
+        if (!response.ok) {
+          throw new Error(payload.error || "Undo failed");
+        }
+
+        cards = [last.card, ...cards];
+        revealed = false;
+        render();
+      } catch (error) {
+        undoStack.push(last);
+        setError(error instanceof Error ? error.message : "Undo failed");
+      }
+    }
+
+    revealButton?.addEventListener("click", () => {
+      revealed = true;
+      render();
+    });
+
+    function revealCard() {
+      if (revealed || !currentCard()) return;
+      revealed = true;
+      render();
+    }
+
+    flipZone?.addEventListener("click", revealCard);
+    flipZone?.addEventListener("keydown", (event) => {
+      if (event.key === "Enter" || event.key === " ") {
+        event.preventDefault();
+        revealCard();
+      }
+    });
+
+    ratingButtons.forEach((button) => {
+      button.addEventListener("click", () => {
+        const rating = Number(button.getAttribute("data-rating"));
+        if (!rating || !(button instanceof HTMLButtonElement)) return;
+        void scoreCard(rating, button);
+      });
+    });
+
+    undoButton?.addEventListener("click", () => {
+      void undoLast();
+    });
+
+    render();
+  </script>
+</section>

@@ -1,0 +1,22 @@
+{
+  "$schema": "node_modules/wrangler/config-schema.json",
+  "name": "recall",
+  "account_id": "9187123d51c1c5dd18489841cfb7228f",
+  "compatibility_date": "2026-03-12",
+  "vars": {
+    "SESSION_COOKIE_NAME": "recall_api_key"
+  },
+  "kv_namespaces": [
+    {
+      "binding": "SESSION",
+      "id": "eb24568bc2244a2fb373eba97cdda963"
+    }
+  ],
+  "d1_databases": [
+    {
+      "binding": "DB",
+      "database_name": "recall",
+      "database_id": "878a27bc-3ec1-40a9-98df-994b397bbeb1"
+    }
+  ]
+}

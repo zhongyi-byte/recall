@@ -1,0 +1,106 @@
+---
+import DeckList from "@/components/DeckList.astro";
+import Base from "@/layouts/Base.astro";
+import { getDashboardStats, listDecks } from "@/lib/db";
+import { requirePageAuth } from "@/lib/auth";
+import { getDb } from "@/lib/runtime";
+
+const redirect = requirePageAuth(Astro);
+if (redirect) return redirect;
+
+const db = getDb(Astro);
+const [stats, decks] = await Promise.all([getDashboardStats(db), listDecks(db)]);
+---
+
+<Base title="Recall" currentPath="/">
+  <section class="grid gap-5 lg:grid-cols-[1.2fr_0.8fr]">
+    <div class="glass-strong hero-panel section-card rounded-[2rem] p-6 sm:p-8">
+      <div class="flex flex-wrap items-center gap-2">
+        <div class="eyebrow">Today</div>
+        <span class="rounded-full bg-white/75 px-3 py-1 text-xs font-semibold uppercase tracking-[0.16em] text-slate-500">
+          {stats.dueToday} Due
+        </span>
+      </div>
+      <h1 class="mt-3 max-w-2xl text-balance text-4xl font-semibold tracking-tight text-ink sm:text-5xl">
+        一眼看到今天该记住什么。
+      </h1>
+      <p class="mt-4 max-w-2xl text-base text-pretty text-slate-600">
+        导入继续交给 AI 和 CLI。你要做的，只是打开手机，把今天到期的卡片顺滑地过一遍。
+      </p>
+
+      <div class="mt-8 grid gap-4 sm:grid-cols-3">
+        <div class="metric-card rounded-[1.75rem] p-5">
+          <div class="eyebrow">Due Now</div>
+          <div class="metric mt-3 text-5xl font-semibold text-ink">{stats.dueToday}</div>
+          <p class="mt-3 text-sm text-slate-600">下一步就是打开 Review，把今天的卡片清空。</p>
+        </div>
+        <div class="metric-card rounded-[1.75rem] p-5">
+          <div class="eyebrow">Done Today</div>
+          <div class="metric mt-3 text-5xl font-semibold text-ink">{stats.completedToday}</div>
+          <p class="mt-3 text-sm text-slate-600">今天已经完成的复习数，会直接进入统计页趋势。</p>
+        </div>
+        <div class="metric-card rounded-[1.75rem] p-5">
+          <div class="eyebrow">Streak</div>
+          <div class="metric mt-3 text-5xl font-semibold text-ink">{stats.streak}</div>
+          <p class="mt-3 text-sm text-slate-600">保持 streak，系统才真正变成你的长期记忆层。</p>
+        </div>
+      </div>
+
+      <div class="mt-8 flex flex-wrap gap-3">
+        <a href="/review" class="btn-primary">开始复习</a>
+        <a href="/decks" class="btn-secondary">
+          管理牌组
+        </a>
+      </div>
+    </div>
+
+    <aside class="space-y-5">
+      <div class="glass section-card rounded-[2rem] p-5">
+        <div class="eyebrow">This Week</div>
+        <h2 class="mt-2 text-2xl font-semibold text-ink">本周节奏</h2>
+        <div class="mt-5 grid grid-cols-7 gap-2">
+          {stats.weeklyActivity.map((day) => (
+            <div>
+              <div
+                class="h-20 rounded-2xl bg-[linear-gradient(180deg,rgba(191,98,56,0.22),rgba(84,127,159,0.62))]"
+                style={`opacity:${day.count === 0 ? 0.18 : Math.min(0.32 + day.count / 12, 1)}`}
+              />
+              <div class="mt-2 text-center text-xs text-slate-500">{day.date.slice(5)}</div>
+              <div class="text-center text-sm font-medium text-ink">{day.count}</div>
+            </div>
+          ))}
+        </div>
+      </div>
+
+      <div class="glass section-card rounded-[2rem] p-5">
+        <div class="eyebrow">Retention</div>
+        <div class="metric mt-3 text-5xl font-semibold text-ink">{stats.retention}%</div>
+        <p class="mt-3 text-sm text-slate-600">Good + Easy 占全部评分的比例。MVP 先用这个做轻量保留率指标。</p>
+      </div>
+    </aside>
+  </section>
+
+  <section class="mt-6 grid gap-6 lg:grid-cols-[1fr_0.8fr]">
+    <div class="glass-strong section-card rounded-[2rem] p-6">
+      <div class="flex items-center justify-between gap-3">
+        <div>
+          <div class="eyebrow">Decks</div>
+          <h2 class="mt-2 text-2xl font-semibold text-ink">牌组一览</h2>
+        </div>
+        <a href="/decks" class="text-sm font-medium text-slate-600 hover:text-slate-900">View All</a>
+      </div>
+      <div class="mt-5">
+        <DeckList decks={decks} />
+      </div>
+    </div>
+
+    <div class="glass section-card rounded-[2rem] p-6">
+      <div class="eyebrow">Inventory</div>
+      <h2 class="mt-2 text-2xl font-semibold text-ink">当前总量</h2>
+      <div class="metric mt-4 text-6xl font-semibold text-ink">{stats.totalCards}</div>
+      <p class="mt-3 text-sm text-slate-600">
+        你可以继续通过 `recall import`、`recall add` 或 Web 表单补卡；调度状态会随评分即时更新。
+      </p>
+    </div>
+  </section>
+</Base>

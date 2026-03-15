@@ -1,0 +1,37 @@
+---
+const {
+  title,
+  items,
+  suffix = ""
+} = Astro.props as {
+  title: string;
+  items: Array<{ label: string; value: number; total?: number }>;
+  suffix?: string;
+};
+
+const maxValue = Math.max(...items.map((item) => item.value), 1);
+---
+
+<section class="glass section-card rounded-[2rem] p-5">
+  <div class="eyebrow">{title}</div>
+  <div class="mt-4 space-y-4">
+    {items.map((item) => (
+      <div>
+        <div class="flex items-baseline justify-between gap-3">
+          <span class="min-w-0 break-words text-sm font-medium text-slate-700">{item.label}</span>
+          <span class="metric text-lg font-semibold text-ink">
+            {item.value}
+            {suffix}
+            {typeof item.total === "number" ? ` / ${item.total}` : ""}
+          </span>
+        </div>
+        <div class="mt-2 h-2.5 rounded-full bg-slate-200/80">
+          <div
+            class="h-full rounded-full bg-[linear-gradient(90deg,#bf6238,#547f9f)]"
+            style={`width:${Math.max((item.value / maxValue) * 100, item.value > 0 ? 8 : 0)}%`}
+          />
+        </div>
+      </div>
+    ))}
+  </div>
+</section>

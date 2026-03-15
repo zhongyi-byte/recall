@@ -1,0 +1,61 @@
+---
+import "@/styles/global.css";
+
+const {
+  title = "Recall",
+  currentPath = "/"
+} = Astro.props;
+
+const navItems = [
+  { href: "/", label: "Dashboard" },
+  { href: "/review", label: "Review" },
+  { href: "/decks", label: "Decks" },
+  { href: "/stats", label: "Stats" }
+];
+---
+
+<!doctype html>
+<html lang="zh-CN">
+  <head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1" />
+    <meta name="theme-color" content="#18212f" />
+    <meta name="generator" content={Astro.generator} />
+    <link rel="manifest" href="/manifest.json" />
+    <title>{title}</title>
+  </head>
+  <body class="page-shell">
+    <a href="#main-content" class="skip-link">Skip to Content</a>
+    <div class="mx-auto max-w-6xl px-4 pb-16 pt-5 sm:px-6 lg:px-8">
+      <header class="glass section-card flex flex-col gap-4 rounded-[2rem] px-5 py-4 sm:flex-row sm:items-center sm:justify-between">
+        <div class="min-w-0">
+          <div class="flex items-center gap-3">
+            <a href="/" class="text-2xl font-semibold tracking-tight text-ink">Recall</a>
+            <span class="rounded-full border border-white/70 bg-white/70 px-3 py-1 text-[0.68rem] font-semibold uppercase tracking-[0.18em] text-slate-500">
+              Memory OS
+            </span>
+          </div>
+          <p class="mt-1 text-sm text-pretty text-slate-600">AI 时代的个人记忆系统，导入零摩擦，复习够顺滑。</p>
+        </div>
+        <nav class="flex flex-wrap gap-2" aria-label="Primary">
+          {navItems.map((item) => (
+            <a
+              href={item.href}
+              class:list={[
+                "rounded-full px-4 py-2 text-sm font-medium transition",
+                currentPath === item.href
+                  ? "bg-slate-900 text-white shadow-sm"
+                  : "bg-white/60 text-slate-700 hover:bg-white/95"
+              ]}
+            >
+              {item.label}
+            </a>
+          ))}
+        </nav>
+      </header>
+      <main id="main-content" class="mt-6">
+        <slot />
+      </main>
+    </div>
+  </body>
+</html>

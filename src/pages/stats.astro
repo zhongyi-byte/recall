@@ -1,0 +1,62 @@
+---
+import StatsChart from "@/components/StatsChart.astro";
+import Base from "@/layouts/Base.astro";
+import { getDashboardStats } from "@/lib/db";
+import { requirePageAuth } from "@/lib/auth";
+import { getDb } from "@/lib/runtime";
+
+const redirect = requirePageAuth(Astro);
+if (redirect) return redirect;
+
+const stats = await getDashboardStats(getDb(Astro));
+const heatmapMax = Math.max(...stats.heatmap.map((item) => item.count), 1);
+---
+
+<Base title="Stats · Recall" currentPath="/stats">
+  <section class="grid gap-6 lg:grid-cols-3">
+    <div class="glass-strong section-card rounded-[2rem] p-6">
+      <div class="eyebrow">Current Streak</div>
+      <div class="metric mt-3 text-6xl font-semibold text-ink">{stats.streak}</div>
+      <p class="mt-3 text-sm text-slate-600">最长 streak: {stats.longestStreak} 天</p>
+    </div>
+    <div class="glass section-card rounded-[2rem] p-6">
+      <div class="eyebrow">Retention</div>
+      <div class="metric mt-3 text-6xl font-semibold text-ink">{stats.retention}%</div>
+      <p class="mt-3 text-sm text-slate-600">轻量指标: (Good + Easy) / 总评分数</p>
+    </div>
+    <div class="glass section-card rounded-[2rem] p-6">
+      <div class="eyebrow">Today</div>
+      <div class="metric mt-3 text-6xl font-semibold text-ink">{stats.completedToday}</div>
+      <p class="mt-3 text-sm text-slate-600">今天已完成复习数</p>
+    </div>
+  </section>
+
+  <section class="mt-6 grid gap-6 lg:grid-cols-[1.15fr_0.85fr]">
+    <div class="glass-strong section-card rounded-[2rem] p-6">
+      <div class="eyebrow">90-Day Heatmap</div>
+      <h2 class="mt-2 text-2xl font-semibold text-ink">过去 90 天复习热力图</h2>
+      <div class="mt-6 grid grid-cols-10 gap-2 sm:grid-cols-15">
+        {stats.heatmap.map((cell) => (
+          <div
+            class="aspect-square rounded-xl bg-[linear-gradient(180deg,#bf6238,#547f9f)]"
+            title={`${cell.date}: ${cell.count}`}
+            style={`opacity:${cell.count === 0 ? 0.12 : Math.min(0.22 + cell.count / (heatmapMax * 1.1), 1)}`}
+          />
+        ))}
+      </div>
+    </div>
+
+    <StatsChart title="State Distribution" items={stats.stateDistribution.map((item) => ({ label: item.state, value: item.count }))} />
+  </section>
+
+  <section class="mt-6 grid gap-6 lg:grid-cols-2">
+    <StatsChart
+      title="Weekly Volume"
+      items={stats.weeklyActivity.map((item) => ({ label: item.date.slice(5), value: item.count }))}
+    />
+    <StatsChart
+      title="Deck Mastery"
+      items={stats.masteryByDeck.map((item) => ({ label: item.deckName, value: item.mastered, total: item.total }))}
+    />
+  </section>
+</Base>

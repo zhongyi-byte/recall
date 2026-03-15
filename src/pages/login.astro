@@ -1,0 +1,67 @@
+---
+import Base from "@/layouts/Base.astro";
+
+const next = Astro.url.searchParams.get("next") || "/";
+---
+
+<Base title="Login · Recall" currentPath="/login">
+  <section class="mx-auto max-w-xl">
+    <div class="glass-strong hero-panel section-card rounded-[2rem] p-8">
+      <div class="eyebrow">Authentication</div>
+      <h1 class="mt-3 text-3xl font-semibold tracking-tight text-ink text-balance">输入你的 API Key</h1>
+      <p class="mt-3 text-base text-pretty text-slate-600">
+        Recall 是个人单用户系统。登录后，Web 和 CLI 都通过同一个 API Key 访问 Workers API。
+      </p>
+
+      <form class="mt-8 space-y-4" id="login-form">
+        <input type="hidden" name="next" value={next} />
+        <label class="block">
+          <span class="mb-2 block text-sm font-medium text-slate-700">API Key</span>
+          <input
+            autocomplete="current-password"
+            class="field text-base"
+            name="key"
+            placeholder="sk-live-…"
+            required
+            type="password"
+          />
+        </label>
+        <button class="btn-primary" type="submit">
+          Save API Key
+        </button>
+        <p aria-live="polite" class="hidden text-sm text-rose-700" id="login-error"></p>
+      </form>
+    </div>
+  </section>
+
+  <script>
+    // @ts-nocheck
+    const form = document.querySelector("#login-form");
+    const errorEl = document.querySelector("#login-error");
+    if (form instanceof HTMLFormElement) {
+      form.addEventListener("submit", async (event) => {
+        event.preventDefault();
+        if (!(errorEl instanceof HTMLElement)) return;
+        errorEl.classList.add("hidden");
+        errorEl.textContent = "";
+
+        const formData = new FormData(form);
+        const next = formData.get("next")?.toString() || "/";
+
+        const response = await fetch("/api/session", {
+          method: "POST",
+          body: formData
+        });
+
+        if (!response.ok) {
+          const payload = await response.json().catch(() => ({}));
+          errorEl.textContent = payload.error || "Login failed";
+          errorEl.classList.remove("hidden");
+          return;
+        }
+
+        window.location.href = next;
+      });
+    }
+  </script>
+</Base>

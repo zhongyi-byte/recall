@@ -1,0 +1,23 @@
+---
+import Base from "@/layouts/Base.astro";
+import ReviewCard from "@/components/ReviewCard.astro";
+import { getDeck, listDueCards } from "@/lib/db";
+import { requirePageAuth } from "@/lib/auth";
+import { getDb } from "@/lib/runtime";
+
+const redirect = requirePageAuth(Astro);
+if (redirect) return redirect;
+
+const db = getDb(Astro);
+const deckId = Astro.url.searchParams.get("deck") || undefined;
+const [deck, cards] = await Promise.all([
+  deckId ? getDeck(db, deckId) : Promise.resolve(null),
+  listDueCards(db, deckId)
+]);
+
+const deckLabel = deck?.name ?? "All Decks";
+---
+
+<Base title="Review · Recall" currentPath="/review">
+  <ReviewCard cards={cards} deckLabel={deckLabel} />
+</Base>

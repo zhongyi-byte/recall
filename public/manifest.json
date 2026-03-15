@@ -1,0 +1,11 @@
+{
+  "name": "Recall",
+  "short_name": "Recall",
+  "description": "A memory system for the AI era.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#f8f1e4",
+  "theme_color": "#18212f",
+  "lang": "zh-CN",
+  "icons": []
+}
