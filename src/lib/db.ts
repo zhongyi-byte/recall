@@ -66,6 +66,37 @@ export type ReviewMutation = {
   preview: Record<number, { label: string; minutesLabel: string; due: string }>;
 };
 
+export type SyncDeck = {
+  id: string;
+  name: string;
+  desc: string;
+  archived: boolean;
+  createdAt: string;
+  updatedAt: string;
+};
+
+export type SyncCard = {
+  id: string;
+  deckId: string;
+  front: string;
+  back: string;
+  source: string;
+  tags: string[];
+  createdAt: string;
+  updatedAt: string;
+  due: string;
+  stability: number;
+  difficulty: number;
+  elapsedDays: number;
+  lastElapsedDays: number;
+  scheduledDays: number;
+  learningSteps: number;
+  reps: number;
+  lapses: number;
+  state: number;
+  lastReview: string | null;
+};
+
 type Queryable = Pick<D1Database, "prepare" | "batch">;
 
 type CardRow = {
@@ -324,6 +355,84 @@ export async function listCardsByDeck(db: Queryable, deckId: string) {
     .all<CardRow>();
 
   return (result.results ?? []).map(toCardListItem);
+}
+
+export async function exportSyncSnapshot(db: Queryable): Promise<{ decks: SyncDeck[]; cards: SyncCard[] }> {
+  const [deckResult, cardResult] = await Promise.all([
+    db
+      .prepare(
+        `SELECT id, name, desc, archived, created_at, updated_at
+         FROM decks
+         ORDER BY updated_at DESC`
+      )
+      .all<{
+        id: string;
+        name: string;
+        desc: string;
+        archived: number;
+        created_at: string;
+        updated_at: string;
+      }>(),
+    db
+      .prepare(
+        `SELECT
+           c.id,
+           c.deck_id,
+           c.front,
+           c.back,
+           c.source,
+           c.tags,
+           c.created_at,
+           c.updated_at,
+           cs.due,
+           cs.stability,
+           cs.difficulty,
+           cs.elapsed_days,
+           cs.last_elapsed_days,
+           cs.scheduled_days,
+           cs.learning_steps,
+           cs.reps,
+           cs.lapses,
+           cs.state,
+           cs.last_review
+         FROM cards c
+         INNER JOIN card_states cs ON cs.card_id = c.id
+         ORDER BY c.updated_at DESC`
+      )
+      .all<CardRow>()
+  ]);
+
+  return {
+    decks: (deckResult.results ?? []).map((row) => ({
+      id: row.id,
+      name: row.name,
+      desc: row.desc,
+      archived: Boolean(row.archived),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at
+    })),
+    cards: (cardResult.results ?? []).map((row) => ({
+      id: row.id,
+      deckId: row.deck_id,
+      front: row.front,
+      back: row.back,
+      source: row.source,
+      tags: parseTags(row.tags),
+      createdAt: row.created_at,
+      updatedAt: row.updated_at,
+      due: row.due,
+      stability: row.stability,
+      difficulty: row.difficulty,
+      elapsedDays: row.elapsed_days,
+      lastElapsedDays: row.last_elapsed_days,
+      scheduledDays: row.scheduled_days,
+      learningSteps: row.learning_steps,
+      reps: row.reps,
+      lapses: row.lapses,
+      state: row.state,
+      lastReview: row.last_review
+    }))
+  };
 }
 
 export async function createCard(
